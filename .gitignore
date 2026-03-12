@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.env
+data/val_images/
+data/labels/
+runs/
