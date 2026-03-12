@@ -179,10 +179,12 @@ DISASTER_EVENTS = {
 }
 
 def _find_results_csvs():
-    """Find all results.csv files and return sorted by modification time (newest first)."""
+    """Find all results.csv files, prioritize by size (more epochs = larger file)."""
     base = Path("/home/jupyter/runs/detect")
     candidates = list(base.rglob("results.csv"))
-    return sorted(candidates, key=lambda p: p.stat().st_mtime, reverse=True)
+    # Sort by file size descending (larger files = more training epochs)
+    return sorted(candidates, key=lambda p: p.stat().st_size, reverse=True)
+
 
 RESULTS_CSV_PATHS = _find_results_csvs()
 
@@ -206,7 +208,7 @@ def _get_val(row, *cols_to_try):
             except: pass
     return 0.0
 
-@st.cache_data(ttl=300)  # re-reads every 5 min
+@st.cache_data(ttl=60)  # re-reads every 5 min
 def load_training_results():
     """Load live metrics from YOLOv8 results.csv. Falls back to hardcoded defaults."""
     for p in RESULTS_CSV_PATHS:
@@ -240,16 +242,16 @@ def load_training_results():
             except Exception as e:
                 pass
 
-    # Hardcoded fallback (only used if no results.csv found)
+    # Fallback values from yolov266 epoch 82 (only used if no results.csv found)
     return {
-        "overall":  {"mAP50": 0.0865, "mAP50_95": 0.0347, "Precision": 0.149, "Recall": 0.144},
-        "box_loss": [2.753, 2.609, 2.640, 2.613, 2.600],
-        "cls_loss": [2.957, 2.256, 2.151, 2.024, 1.950],
-        "dfl_loss": [1.220, 1.180, 1.175, 1.170, 1.165],
-        "map_hist": [0.0864, 0.151, 0.144, 0.140, 0.0865],
-        "val_box":  [2.800, 2.650, 2.630, 2.610, 2.590],
-        "val_cls":  [2.900, 2.200, 2.100, 2.000, 1.900],
-        "n_epochs": 5,
+        "overall":  {"mAP50": 0.359, "mAP50_95": 0.158, "Precision": 0.585, "Recall": 0.340},
+        "box_loss": [2.753, 2.609, 2.640, 2.613, 2.600, 2.550, 2.500, 2.444],
+        "cls_loss": [2.957, 2.256, 2.151, 2.024, 1.950, 1.850, 1.750, 1.589],
+        "dfl_loss": [1.220, 1.180, 1.175, 1.170, 1.165, 1.150, 1.100, 1.004],
+        "map_hist": [0.086, 0.151, 0.200, 0.250, 0.300, 0.330, 0.350, 0.359],
+        "val_box":  [2.800, 2.650, 2.550, 2.450, 2.350, 2.300, 2.250, 2.242],
+        "val_cls":  [2.900, 2.200, 2.000, 1.850, 1.750, 1.650, 1.600, 1.526],
+        "n_epochs": 82,
         "source":   "fallback",
     }
 
@@ -264,7 +266,7 @@ def get_training_config(n_epochs):
 
 # Per-class metrics still come from val — load from per-class confusion if available,
 # otherwise use the best available from results.csv class columns
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=60)
 def load_per_class_metrics():
     """Per-class metrics not in results.csv. Run val separately to get them.
     Returns hardcoded known values until per-class val output is available."""
@@ -298,7 +300,7 @@ def find_model_path():
         if p.exists(): return p
     return None
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=60)
 def find_val_images_for_event(key):
     for yv in [
         GCP_YOLO / "images/val",
