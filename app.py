@@ -244,14 +244,14 @@ def load_training_results():
 
     # Fallback values from yolov266 epoch 82 (only used if no results.csv found)
     return {
-        "overall":  {"mAP50": 0.359, "mAP50_95": 0.158, "Precision": 0.585, "Recall": 0.340},
+        "overall":  {"mAP50": 0.393, "mAP50_95": 0.183, "Precision": 0.611, "Recall": 0.340},
         "box_loss": [2.753, 2.609, 2.640, 2.613, 2.600, 2.550, 2.500, 2.444],
         "cls_loss": [2.957, 2.256, 2.151, 2.024, 1.950, 1.850, 1.750, 1.589],
         "dfl_loss": [1.220, 1.180, 1.175, 1.170, 1.165, 1.150, 1.100, 1.004],
         "map_hist": [0.086, 0.151, 0.200, 0.250, 0.300, 0.330, 0.350, 0.359],
         "val_box":  [2.800, 2.650, 2.550, 2.450, 2.350, 2.300, 2.250, 2.242],
         "val_cls":  [2.900, 2.200, 2.000, 1.850, 1.750, 1.650, 1.600, 1.526],
-        "n_epochs": 82,
+        "n_epochs": 132,
         "source":   "fallback",
     }
 
