@@ -4,3 +4,12 @@ __pycache__/
 data/val_images/
 data/labels/
 runs/
+
+# Large datasets (store in GCS or local only)
+*.zip
+xbd-dataset/
+xview2-challenge-dataset-train-and-test/
+visual-aid/
+
+# Large model checkpoints (optional - include only final models)
+runs/detect/train*/weights/

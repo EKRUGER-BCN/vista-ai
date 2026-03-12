@@ -423,7 +423,7 @@ def before_after_html(pre_b64, post_b64, height=400):
       <!-- PRE image clipped to left of divider -->
       <div id="ba-left" style="position:absolute;top:0;left:0;width:50%;height:100%;overflow:hidden;">
         <img src="data:image/png;base64,{pre_b64}"
-             style="position:absolute;top:0;left:0;width:100vw;max-width:none;height:100%;object-fit:cover;"/>
+             style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;"/>
       </div>
       <!-- Divider line -->
       <div id="ba-div" style="position:absolute;top:0;left:calc(50% - 1px);width:2px;height:100%;background:#38bdf8;pointer-events:none;">
@@ -1033,8 +1033,8 @@ with tab_explore:
             if pre_img:
                 st.markdown('<p class="section-label">Before / After — drag the divider</p>', unsafe_allow_html=True)
                 w, h = post_img.size
-                display_h = min(500, int(700 * h / w))
-                st.components.v1.html(before_after_html(img_to_b64(pre_img.resize((w,h))), img_to_b64(post_img), display_h), height=display_h+50)
+                display_h = min(480, int(w * h / w))
+                st.components.v1.html(before_after_html(img_to_b64(pre_img.resize((w,h))), img_to_b64(post_img), display_h), height=display_h+80)
             else:
                 st.image(post_img, use_container_width=True)
                 st.markdown('<div class="info-box">Pre-disaster image not found for this tile.</div>', unsafe_allow_html=True)
@@ -1079,8 +1079,8 @@ with tab_explore:
             if pre_img:
                 st.markdown('<p class="section-label">Before / After Slider</p>', unsafe_allow_html=True)
                 w, h = post_img.size
-                dh = min(450, int(700*h/w))
-                st.components.v1.html(before_after_html(img_to_b64(pre_img.resize((w,h))), img_to_b64(post_img), dh), height=dh+50)
+                dh = min(480, h)
+                st.components.v1.html(before_after_html(img_to_b64(pre_img.resize((w,h))), img_to_b64(post_img), dh), height=dh+80)
             st.markdown("---")
             label_path = (GCP_YOLO / "labels/val" if GCP_YOLO.exists() else DATA_DIR / "labels/val") / post_path.with_suffix(".txt").name
             gt_boxes = load_yolo_labels(label_path)
@@ -1212,20 +1212,22 @@ with tab_card:
         st.markdown("**Project:** VISTA · Le Wagon Barcelona · Cohort #2230")
         st.markdown("**Stack:** Python · YOLOv26 · xBD Dataset · GCP Vertex AI · Streamlit")
         st.markdown("---")
+        def team_card(iso, name, github):
+            return f'''<div style="background:#1a1610;border:1px solid #3a3020;border-top:2px solid #f0a830;
+                 border-radius:3px;padding:24px 16px;text-align:center;">
+              <img src="https://flagcdn.com/48x36/{iso}.png"
+                   style="display:block;margin:0 auto 10px;border-radius:2px;" />
+              <div style="font-family:Bebas Neue,sans-serif;font-size:1.15rem;
+                   color:#e8dcc8;letter-spacing:0.08em;margin-bottom:8px;">{name}</div>
+              <a href="https://github.com/{github}" target="_blank"
+                 style="font-family:DM Mono,monospace;font-size:0.72rem;color:#f0a830;
+                 text-decoration:none;letter-spacing:0.06em;">&#9655; {github}</a>
+            </div>'''
         t1, t2, t3 = st.columns(3)
         with t1:
-            st.markdown("""<div style="background:#1a1610;border:1px solid #3a3020;border-top:2px solid #f0a830;border-radius:3px;padding:24px 16px;text-align:center;">
-              <span style="font-size:2.6rem;display:block;line-height:1.2;">🇧🇷</span>
-              <span style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:#e8dcc8;letter-spacing:0.08em;margin-top:10px;display:block;">Edison Kruger</span>
-            </div>""", unsafe_allow_html=True)
+            st.markdown(team_card("br", "Edison Kruger", "EKRUGER-BCN"), unsafe_allow_html=True)
         with t2:
-            st.markdown("""<div style="background:#1a1610;border:1px solid #3a3020;border-top:2px solid #f0a830;border-radius:3px;padding:24px 16px;text-align:center;">
-              <span style="font-size:2.6rem;display:block;line-height:1.2;">🇧🇷</span>
-              <span style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:#e8dcc8;letter-spacing:0.08em;margin-top:10px;display:block;">Ildebrando de Jesus Junior</span>
-            </div>""", unsafe_allow_html=True)
+            st.markdown(team_card("br", "Ildebrando de Jesus Junior", "IJESUSJR"), unsafe_allow_html=True)
         with t3:
-            st.markdown("""<div style="background:#1a1610;border:1px solid #3a3020;border-top:2px solid #f0a830;border-radius:3px;padding:24px 16px;text-align:center;">
-              <span style="font-size:2.6rem;display:block;line-height:1.2;">🇵🇹</span>
-              <span style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:#e8dcc8;letter-spacing:0.08em;margin-top:10px;display:block;">Martim Gomes</span>
-            </div>""", unsafe_allow_html=True)
+            st.markdown(team_card("pt", "Martim Gomes", "martimlvg"), unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
