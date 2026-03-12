@@ -374,7 +374,10 @@ def draw_boxes(img, boxes, conf_threshold=0.0):
     return img
 
 @st.cache_resource
+@st.cache_resource
 def load_model(path_str):
+    """Load YOLO model and cache in memory for fast inference.
+    To reload a new model: restart app or clear cache via Streamlit UI."""
     from ultralytics import YOLO
     return YOLO(path_str)
 
