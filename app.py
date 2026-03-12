@@ -289,9 +289,11 @@ TRAINING_CONFIG = get_training_config(_train["n_epochs"])
 
 def find_model_path():
     for p in [
+        MODEL_DIR / "best.pt",                  # Streamlit Cloud / local repo
+        BASE_DIR / "models" / "best.pt",        # fallback relative
+        Path("/home/jupyter/runs/detect/runs/detect/building_damage_yolov267/weights/best.pt"),
         Path("/home/jupyter/runs/detect/runs/detect/building_damage_yolov26/weights/best.pt"),
         Path("/home/jupyter/runs/detect/building_damage_yolov26/weights/best.pt"),
-        Path("./runs/detect/runs/detect/building_damage_yolov26/weights/best.pt"),
     ]:
         if p.exists(): return p
     return None
@@ -325,6 +327,7 @@ def find_all_val_images():
 def get_pre_image(post_path):
     stem = post_path.stem.replace("post_disaster", "pre_disaster")
     for base in [post_path.parent,
+                 SAMPLE_DIR,
                  GCP_XBD / "train/images",
                  GCP_XBD / "test/images",
                  GCP_YOLO / "images/val",
