@@ -6,6 +6,17 @@ from pathlib import Path
 from datetime import datetime
 import pandas as pd
 
+# ── Environment-aware paths ─────────────────────────────────────────────────
+BASE_DIR   = Path(__file__).parent
+MODEL_DIR  = BASE_DIR / "models"
+DATA_DIR   = BASE_DIR / "data"
+SAMPLE_DIR = DATA_DIR / "sample_images"
+GCP_YOLO   = Path("/home/jupyter/yolo_dataset")
+GCP_XBD    = Path("/home/jupyter/visual-aid/xbd-dataset/xbd")
+GCP_RUNS   = Path("/home/jupyter/runs/detect")
+IS_GCP     = GCP_YOLO.exists() or GCP_RUNS.exists()
+DEVICE_LABEL = "NVIDIA L4" if IS_GCP else "CPU"
+
 st.set_page_config(page_title="VISTA · Satellite Damage Intelligence", page_icon="👁️", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
@@ -157,14 +168,14 @@ CLASS_COLORS = {0: (74, 222, 128), 1: (251, 191, 36), 2: (248, 113, 113)}
 CLASS_BADGES = {0: "badge-green", 1: "badge-yellow", 2: "badge-red"}
 
 DISASTER_EVENTS = {
-    "🌀 Hurricane Michael (2018)": "hurricane-michael",
-    "🔥 Woolsey Fire (2018)":      "woolsey-fire",
-    "🔥 SoCal Fire (2017)":        "socal-fire",
-    "🌊 Palu Tsunami (2018)":      "palu-tsunami",
-    "🌊 Sunda Tsunami (2018)":     "sunda-tsunami",
-    "🌧️ Nepal Flooding (2017)":    "nepal-flooding",
-    "🔥 Pinery Bushfire (2015)":   "pinery-bushfire",
-    "🌪️ Joplin Tornado (2011)":    "joplin-tornado",
+    "🌀 Hurricane Florence (2018)": "hurricane-florence",
+    "🌀 Hurricane Matthew (2016)":  "hurricane-matthew",
+    "🌀 Hurricane Harvey (2017)":   "hurricane-harvey",
+    "🔥 SoCal Fire (2017)":         "socal-fire",
+    "🌊 Palu Tsunami (2018)":       "palu-tsunami",
+    "🌧️ Nepal Flooding (2017)":     "nepal-flooding",
+    "🌀 Hurricane Michael (2018)":  "hurricane-michael",
+    "🔥 Woolsey Fire (2018)":       "woolsey-fire",
 }
 
 def _find_results_csvs():
@@ -287,21 +298,22 @@ def find_model_path():
 
 @st.cache_data(ttl=300)
 def find_val_images_for_event(key):
-    yv = Path("/home/jupyter/yolo_dataset/images/val")
-    if yv.exists():
-        imgs = [p for p in yv.glob("*.png") if key in p.name]
-        if imgs: return imgs
-    td = Path("/home/jupyter/xbd-dataset/xbd/test/images")
-    if td.exists(): return [p for p in td.glob(f"{key}*post*.png")]
+    for yv in [GCP_YOLO / "images/val", DATA_DIR / "val_images", SAMPLE_DIR]:
+        if yv.exists():
+            imgs = [p for p in yv.glob("*.png") if key in p.name]
+            if imgs: return imgs
+    for td in [GCP_XBD / "test/images"]:
+        if td.exists(): return [p for p in td.glob(f"{key}*post*.png")]
     return []
 
 def find_all_val_images():
     search_paths = [
-        Path("/home/jupyter/yolo_dataset/images/val"),
-        Path("/home/jupyter/yolo_dataset/images/test"),
-        Path("/home/jupyter/xbd-dataset/xbd/test/images"),
-        Path("/home/jupyter/xbd-dataset/xbd/hold/images"),
+        GCP_YOLO / "images/val",
+        GCP_YOLO / "images/test",
+        GCP_XBD  / "test/images",
+        GCP_XBD  / "hold/images",
         Path("/home/jupyter/raw_data/xbd/test/images"),
+        DATA_DIR / "val_images",
     ]
     for p in search_paths:
         if p.exists():
@@ -313,16 +325,17 @@ def find_all_val_images():
 def get_pre_image(post_path):
     stem = post_path.stem.replace("post_disaster", "pre_disaster")
     for base in [post_path.parent,
-                 Path("/home/jupyter/xbd-dataset/xbd/train/images"),
-                 Path("/home/jupyter/xbd-dataset/xbd/test/images"),
-                 Path("/home/jupyter/yolo_dataset/images/val")]:
+                 GCP_XBD / "train/images",
+                 GCP_XBD / "test/images",
+                 GCP_YOLO / "images/val",
+                 DATA_DIR / "val_images"]:
         c = base / f"{stem}.png"
         if c.exists(): return c
     return None
 
 def find_heatmaps():
     found = []
-    for base in [Path("/home/jupyter"), Path(".")]:
+    for base in [Path("/home/jupyter"), BASE_DIR, DATA_DIR]:
         found += list(base.glob("heatmap_*.png"))
     return sorted(found)[:6]
 
@@ -488,24 +501,16 @@ def make_report(orig_img, ann_img, counts, score, severity, ms, filename):
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown(f'<div style="text-align:center;padding:16px 0 8px;"><img src="data:image/png;base64,{LOGO_B64}" style="width:140px;border-radius:8px;"/></div>', unsafe_allow_html=True)
-    st.markdown('<p style="text-align:center;font-size:0.7rem;color:#a09070;font-family:DM Sans,sans-serif;letter-spacing:0.06em;margin-top:2px;">Visual Intelligence for Satellite Threat Analysis</p>', unsafe_allow_html=True)
+    st.markdown(f'<div style="text-align:center;padding:16px 0 8px;"><img src="data:image/png;base64,{LOGO_B64}" style="width:120px;border-radius:8px;"/></div>', unsafe_allow_html=True)
     st.markdown("---")
     model_path = find_model_path()
-    st.markdown('<p class="section-label">Model Status</p>', unsafe_allow_html=True)
     if model_path:
         st.markdown('<span class="badge badge-green">● MODEL LOADED</span>', unsafe_allow_html=True)
     else:
         st.markdown('<span class="badge badge-red">● MODEL NOT FOUND</span>', unsafe_allow_html=True)
     st.markdown("---")
-    st.markdown('<p class="section-label">Inference Settings</p>', unsafe_allow_html=True)
-    conf_thresh = st.slider("Confidence threshold", 0.10, 0.90, 0.25, 0.05)
-    st.markdown("---")
-    st.markdown('<p class="section-label">Training Config</p>', unsafe_allow_html=True)
-    _live = load_training_results()
-    _cfg  = get_training_config(_live["n_epochs"])
-    for k, v in _cfg.items():
-        st.markdown(f"<span style='font-family:Space Mono,monospace;font-size:0.65rem;color:#f0a830'>{k}</span><br><span style='font-size:0.82rem'>{v}</span>", unsafe_allow_html=True)
+    st.markdown('<p class="section-label">Confidence Threshold</p>', unsafe_allow_html=True)
+    conf_thresh = st.slider("Confidence", 0.10, 0.90, 0.25, 0.05, label_visibility="collapsed")
 
 # ── Header ─────────────────────────────────────────────────────────────────────
 col_logo, col_title = st.columns([1, 5])
@@ -522,7 +527,7 @@ with col_title:
       </div>
       <div style="font-family:'DM Mono',monospace;font-size:0.68rem;color:#a09070;
         margin-top:5px;letter-spacing:0.06em;">
-        YOLOv26n &nbsp;·&nbsp; xBD Dataset &nbsp;·&nbsp; NVIDIA L4 &nbsp;·&nbsp; GCP Vertex AI &nbsp;·&nbsp; Le Wagon BCN #2230
+        YOLOv26n &nbsp;·&nbsp; xBD Dataset &nbsp;·&nbsp; Le Wagon BCN #2230
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -746,9 +751,9 @@ with tab_analyze:
         orig = Image.open(tmp_path).convert("RGB")
         st.markdown("---")
         if model_path:
-            with st.spinner("🛰️ Running inference on NVIDIA L4..."):
+            with st.spinner("🛰️ Running VISTA inference..."):
                 boxes, ms = run_inference(tmp_path, model_path, conf_up)
-            st.markdown(f'<span class="timing-pill">⚡ Analyzed in {ms:.1f} ms on NVIDIA L4</span>', unsafe_allow_html=True)
+            st.markdown(f'<span class="timing-pill">⚡ {ms:.1f} ms · {DEVICE_LABEL}</span>', unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
             ann = draw_boxes(orig.copy(), boxes, conf_up)
             counts = {0:0, 1:0, 2:0}
@@ -947,14 +952,13 @@ with tab_analyze:
         st.markdown("""<div style="border:1px solid rgba(240,168,48,0.15);border-radius:4px;padding:48px;text-align:center;margin-top:20px;background:#13110d;">
           <div style="font-size:3rem;margin-bottom:16px">🛰️</div>
           <div style="font-family:'Bebas Neue',sans-serif;color:#f0a830;font-size:1.4rem;letter-spacing:0.15em;">UPLOAD A SATELLITE IMAGE TO BEGIN</div>
-          <div style="color:#a09070;font-size:0.8rem;margin-top:8px;font-family:'DM Mono',monospace;">PNG · JPG · Any resolution · Processed on NVIDIA L4</div>
+          <div style="color:#a09070;font-size:0.8rem;margin-top:8px;font-family:'DM Mono',monospace;">PNG · JPG · Any resolution</div>
         </div>""", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         # ── Sample image quick-load ──────────────────────────────────────
         st.markdown('<p class="section-label">Or load a sample from the dataset</p>', unsafe_allow_html=True)
         sample_paths = []
-        for sbase in [Path("/home/jupyter/yolo_dataset/images/val"),
-                      Path("/home/jupyter/xbd-dataset/xbd/test/images")]:
+        for sbase in [SAMPLE_DIR, GCP_YOLO / "images/val", GCP_XBD / "test/images"]:
             if sbase.exists():
                 candidates = list(sbase.glob("*post_disaster*.png"))[:20] or list(sbase.glob("*.png"))[:20]
                 sample_paths = candidates
@@ -976,9 +980,9 @@ with tab_analyze:
             if sp.exists() and model_path:
                 orig = Image.open(sp).convert("RGB")
                 st.markdown("---")
-                with st.spinner("🛰️ Running inference on NVIDIA L4..."):
+                with st.spinner("🛰️ Running VISTA inference..."):
                     boxes, ms = run_inference(sp, model_path, conf_up)
-                st.markdown(f'<span class="timing-pill">⚡ Sample: {sp.name} · {ms:.1f} ms on NVIDIA L4</span>', unsafe_allow_html=True)
+                st.markdown(f'<span class="timing-pill">⚡ Sample · {ms:.1f} ms · {DEVICE_LABEL}</span>', unsafe_allow_html=True)
                 st.markdown("<br>", unsafe_allow_html=True)
                 ann = draw_boxes(orig.copy(), boxes, conf_up)
                 counts = {0:0, 1:0, 2:0}
@@ -1016,7 +1020,7 @@ with tab_explore:
         ekey = DISASTER_EVENTS[sel_label]
         eimgs = find_val_images_for_event(ekey)
         if not eimgs:
-            st.markdown(f'<div class="info-box">⚠️ No images found for <strong>{ekey}</strong> in the validation set.</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="info-box">⚠️ No images found for <strong>{ekey}</strong>. Add matching PNGs to <code>data/sample_images/</code> in the repo.</div>', unsafe_allow_html=True)
         else:
             sel_tile = st.selectbox("Select tile", [p.name for p in eimgs])
             post_path = next(p for p in eimgs if p.name == sel_tile)
@@ -1035,7 +1039,7 @@ with tab_explore:
                 st.markdown("---")
                 with st.spinner("Running VISTA inference..."):
                     boxes, ms = run_inference(post_path, model_path, conf_thresh)
-                st.markdown(f'<span class="timing-pill">⚡ {ms:.1f} ms · NVIDIA L4</span>', unsafe_allow_html=True)
+                st.markdown(f'<span class="timing-pill">⚡ {ms:.1f} ms · {DEVICE_LABEL}</span>', unsafe_allow_html=True)
                 ann = draw_boxes(post_img.copy(), boxes, conf_thresh)
                 co1, co2 = st.columns(2)
                 with co1:
@@ -1062,7 +1066,7 @@ with tab_explore:
         st.markdown('<div class="info-box">Browse the 1,325 validation images used during training. Compare ground-truth annotations vs VISTA predictions side by side.</div>', unsafe_allow_html=True)
         all_val = find_all_val_images()
         if not all_val:
-            st.markdown('<div class="info-box">⚠️ No validation images found. Expected path: <code>/home/jupyter/yolo_dataset/images/val</code></div>', unsafe_allow_html=True)
+            st.markdown('<div class="info-box">⚠️ No validation images found. On Streamlit Cloud, add images to <code>data/val_images/</code> in your repo.</div>', unsafe_allow_html=True)
         else:
             sel_val = st.selectbox("Select image", [p.name for p in all_val])
             post_path = next(p for p in all_val if p.name == sel_val)
@@ -1075,7 +1079,7 @@ with tab_explore:
                 dh = min(450, int(700*h/w))
                 st.components.v1.html(before_after_html(img_to_b64(pre_img.resize((w,h))), img_to_b64(post_img), dh), height=dh+50)
             st.markdown("---")
-            label_path = Path("/home/jupyter/yolo_dataset/labels/val") / post_path.with_suffix(".txt").name
+            label_path = (GCP_YOLO / "labels/val" if GCP_YOLO.exists() else DATA_DIR / "labels/val") / post_path.with_suffix(".txt").name
             gt_boxes = load_yolo_labels(label_path)
             cols = st.columns(3)
             with cols[0]:
