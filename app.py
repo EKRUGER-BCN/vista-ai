@@ -300,12 +300,18 @@ def find_model_path():
 
 @st.cache_data(ttl=300)
 def find_val_images_for_event(key):
-    for yv in [GCP_YOLO / "images/val", DATA_DIR / "val_images", SAMPLE_DIR]:
+    for yv in [
+        GCP_YOLO / "images/val",
+        DATA_DIR / "val_images",
+        SAMPLE_DIR,
+        Path("/home/jupyter/runs/detect/predict4"),
+        Path("/home/jupyter/runs/detect/predict3"),
+    ]:
         if yv.exists():
-            imgs = [p for p in yv.glob("*.png") if key in p.name]
+            imgs = sorted([p for p in list(yv.glob("*.jpg")) + list(yv.glob("*.png")) if key in p.name and "post_disaster" in p.name])
             if imgs: return imgs
     for td in [GCP_XBD / "test/images"]:
-        if td.exists(): return [p for p in td.glob(f"{key}*post*.png")]
+        if td.exists(): return sorted([p for p in td.glob(f"{key}*post*.png")])
     return []
 
 def find_all_val_images():
@@ -1218,11 +1224,25 @@ with tab_card:
               <img src="https://flagcdn.com/48x36/{iso}.png"
                    style="display:block;margin:0 auto 10px;border-radius:2px;" />
               <div style="font-family:Bebas Neue,sans-serif;font-size:1.15rem;
-                   color:#e8dcc8;letter-spacing:0.08em;margin-bottom:8px;">{name}</div>
+                   color:#e8dcc8;letter-spacing:0.08em;margin-bottom:10px;">{name}</div>
               <a href="https://github.com/{github}" target="_blank"
-                 style="font-family:DM Mono,monospace;font-size:0.72rem;color:#f0a830;
-                 text-decoration:none;letter-spacing:0.06em;">&#9655; {github}</a>
-            </div>'''
+                 style="display:inline-flex;align-items:center;gap:6px;font-family:DM Mono,monospace;
+                 font-size:0.72rem;color:#f0a830;text-decoration:none;letter-spacing:0.04em;
+                 background:#0d1117;border:1px solid #3a3020;border-radius:20px;padding:4px 10px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#f0a830" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577
+                  0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756
+                  -1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304
+                  3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931
+                  0-1.31.465-2.381 1.235-3.221-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23
+                  .96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23
+                  .645 1.653.24 2.873.12 3.176.765.84 1.23 1.911 1.23 3.221 0 4.609-2.807 5.624-5.479 5.921
+                  .43.372.823 1.102.823 2.222 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57
+                  C20.565 21.795 24 17.295 24 12c0-6.63-5.37-12-12-12z"/>
+                </svg>
+                {github}
+              </a>
+            </div>'''  
         t1, t2, t3 = st.columns(3)
         with t1:
             st.markdown(team_card("br", "Edison Kruger", "EKRUGER-BCN"), unsafe_allow_html=True)
