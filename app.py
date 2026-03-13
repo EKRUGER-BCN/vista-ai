@@ -4,6 +4,7 @@ from PIL import Image, ImageDraw
 import os, json, time, io, base64, tempfile
 from pathlib import Path
 from datetime import datetime
+import time
 import pandas as pd
 
 # ── Environment-aware paths ─────────────────────────────────────────────────
@@ -186,7 +187,7 @@ def _find_results_csvs():
     return sorted(candidates, key=lambda p: p.stat().st_size, reverse=True)
 
 
-RESULTS_CSV_PATHS = _find_results_csvs()
+# RESULTS_CSV_PATHS computed dynamically in load_training_results
 
 def _get_col(df, *cols_to_try):
     """Return values of the first exactly-matching column name."""
@@ -208,10 +209,12 @@ def _get_val(row, *cols_to_try):
             except: pass
     return 0.0
 
-@st.cache_data(ttl=60)  # re-reads every 5 min
+@st.cache_data(ttl=60, show_spinner=False)  # re-reads every 5 min
 def load_training_results():
     """Load live metrics from YOLOv8 results.csv. Falls back to hardcoded defaults."""
-    for p in RESULTS_CSV_PATHS:
+    csv_paths = _find_results_csvs()
+    import streamlit as st
+    for p in csv_paths:
         if p.exists():
             try:
                 df = pd.read_csv(p)
@@ -266,7 +269,7 @@ def get_training_config(n_epochs):
 
 # Per-class metrics still come from val — load from per-class confusion if available,
 # otherwise use the best available from results.csv class columns
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=60, show_spinner=False)
 def load_per_class_metrics():
     """Per-class metrics not in results.csv. Run val separately to get them.
     Returns hardcoded known values until per-class val output is available."""
@@ -300,7 +303,7 @@ def find_model_path():
         if p.exists(): return p
     return None
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=60, show_spinner=False)
 def find_val_images_for_event(key):
     for yv in [
         GCP_YOLO / "images/val",
@@ -701,7 +704,7 @@ with tab_dashboard:
 
         # ── Training loss curves ──
         with row2_col2:
-            st.markdown('<p class="section-label">Training — Loss Curves (5 Epochs)</p>', unsafe_allow_html=True)
+            st.markdown(f'<p class="section-label">Training — Loss Curves ({_train["n_epochs"]} Epochs)</p>', unsafe_allow_html=True)
             epochs   = list(range(1, _train["n_epochs"] + 1))
             box_loss = _train["box_loss"]
             cls_loss = _train["cls_loss"]
@@ -718,7 +721,7 @@ with tab_dashboard:
                 marker=dict(size=7), hovertemplate="Epoch %{x}<br>mAP@50: %{y:.3f}<extra></extra>"))
             light_layout(fig_loss, height=300)
             fig_loss.update_layout(
-                xaxis=dict(title=dict(text="Epoch", font=dict(color="#94a3c0")), tickmode="linear"),
+                xaxis=dict(title=dict(text="Epoch", font=dict(color="#94a3c0")), tickmode="auto", nticks=10),
                 yaxis=dict(title=dict(text="Loss", font=dict(color="#94a3c0"))),
                 yaxis2=dict(title=dict(text="mAP@50", font=dict(color="#7c3aed")),
                     overlaying="y", side="right",
@@ -1174,7 +1177,7 @@ with tab_metrics:
             paper_bgcolor="#13110d", plot_bgcolor="#0e0c09",
             font=dict(family="DM Sans", color="#a09070", size=12),
             xaxis=dict(title=dict(text="Epoch", font=dict(color="#f0a830")),
-                       gridcolor="rgba(240,168,48,0.08)", tickmode="linear",
+                       gridcolor="rgba(240,168,48,0.08)", tickmode="auto", nticks=15,
                        tickfont=dict(color="#a09070", size=11),
                        linecolor="rgba(240,168,48,0.15)"),
             yaxis=dict(title=dict(text="Loss", font=dict(color="#f0a830")),
