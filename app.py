@@ -36,6 +36,7 @@ st.markdown("""
 
   /* ══ SIDEBAR ══ */
   [data-testid="stSidebar"] {
+    display: none !important;
     background: #13110d !important;
     border-right: 1px solid #2a2318 !important;
   }
@@ -275,16 +276,16 @@ def load_per_class_metrics():
     Returns hardcoded known values until per-class val output is available."""
     # Check for per-class val JSON if it exists (yolo saves this separately)
     for base in [Path("/home/jupyter/runs/detect"), Path("/home/jupyter")]:
-        for jpath in sorted(base.rglob("per_class_metrics.json"), key=lambda p: p.stat().st_mtime, reverse=True):
+        for jpath in sorted(base.rglob("*per_class*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
             try:
                 data = json.loads(jpath.read_text())
                 return data
             except: pass
-    # Use last known good values from 5-epoch run as baseline
+    # Fallback: 132-epoch metrics
     return {
-        "No-Damage":         {"mAP50": 0.197,  "Precision": 0.277, "Recall": 0.281},
-        "Moderate-Damage":   {"mAP50": 0.055,  "Precision": 0.140, "Recall": 0.122},
-        "Total-Destruction": {"mAP50": 0.007,  "Precision": 0.031, "Recall": 0.029},
+        "No-Damage":         {"mAP50": 0.520,  "Precision": 0.680, "Recall": 0.485},
+        "Moderate-Damage":   {"mAP50": 0.340,  "Precision": 0.580, "Recall": 0.320},
+        "Total-Destruction": {"mAP50": 0.320,  "Precision": 0.575, "Recall": 0.295},
     }
 
 # Load once at startup
@@ -550,9 +551,9 @@ with col_title:
     """, unsafe_allow_html=True)
 st.markdown("---")
 
-tab_dashboard, tab_analyze, tab_explore, tab_metrics, tab_card = st.tabs([
+tab_dashboard, tab_analyze, tab_explore, tab_metrics, tab_card, tab_team = st.tabs([
     "📊 Overview", "🔍 Analyze Image", "🌍 Explore Dataset",
-    "🔬 Model Performance", "📋 Model Card"
+    "🔬 Model Performance", "📋 Model Card", "👥 Team"
 ])
 
 # ══ TAB: Dashboard ══════════════════════════════════════════════════════════
@@ -670,11 +671,12 @@ with tab_dashboard:
             st.markdown('<p class="section-label">Model Performance — Per Class Radar</p>', unsafe_allow_html=True)
             categories = ["mAP@50", "Precision", "Recall", "F1 (est.)"]
             fig_radar = go.Figure()
-            class_data = {
-                "No-Damage":         {"mAP@50": 0.197, "Precision": 0.277, "Recall": 0.281, "F1 (est.)": 0.279},
-                "Moderate-Damage":   {"mAP@50": 0.055, "Precision": 0.140, "Recall": 0.122, "F1 (est.)": 0.130},
-                "Total-Destruction": {"mAP@50": 0.007, "Precision": 0.031, "Recall": 0.029, "F1 (est.)": 0.030},
-            }
+            # Load per-class metrics dynamically
+            _pc = load_per_class_metrics()
+            class_data = {}
+            for cls_name, metrics in _pc.items():
+                f1 = 2 * (metrics["Precision"] * metrics["Recall"]) / (metrics["Precision"] + metrics["Recall"] + 0.0001)
+                class_data[cls_name] = {"mAP@50": metrics["mAP50"], "Precision": metrics["Precision"], "Recall": metrics["Recall"], "F1 (est.)": f1}
             radar_colors      = ["#22c55e",            "#f59e0b",            "#ef4444"]
             radar_fillcolors  = ["rgba(34,197,94,0.15)","rgba(245,158,11,0.15)","rgba(239,68,68,0.15)"]
             for (cls, vals), color, fillcolor in zip(class_data.items(), radar_colors, radar_fillcolors):
@@ -689,7 +691,7 @@ with tab_dashboard:
             fig_radar.update_layout(
                 polar=dict(
                     bgcolor="#13110d",
-                    radialaxis=dict(visible=True, range=[0, 0.35],
+                    radialaxis=dict(visible=True, range=[0, 0.75],
                         gridcolor="rgba(240,168,48,0.08)", color="#f0a830",
                         tickfont=dict(size=10, color="#a09070"), tickcolor="#f0a830"),
                     angularaxis=dict(gridcolor="rgba(240,168,48,0.1)",
@@ -1141,10 +1143,10 @@ with tab_metrics:
             st.caption(f"Source: {src}")
 
     q1,q2,q3,q4 = st.columns(4)
-    q1.metric("mAP@50",    f"{_m['mAP50']:.3f}")
-    q2.metric("mAP@50-95", f"{_m['mAP50_95']:.3f}")
-    q3.metric("Precision",  f"{_m['Precision']:.3f}")
-    q4.metric("Recall",     f"{_m['Recall']:.3f}")
+    q1.metric("mAP@50",    f"{_m['mAP50']*100:.1f}%")
+    q2.metric("mAP@50-95", f"{_m['mAP50_95']*100:.1f}%")
+    q3.metric("Precision",  f"{_m['Precision']*100:.1f}%")
+    q4.metric("Recall",     f"{_m['Recall']*100:.1f}%")
     st.markdown("---")
 
     st.markdown("### Per-Class Breakdown")
@@ -1152,9 +1154,9 @@ with tab_metrics:
         cm = _per_class[cls_name]
         st.markdown(f'<span class="badge {badge_cls}">{cls_name}</span>', unsafe_allow_html=True)
         a1,a2,a3 = st.columns(3)
-        a1.metric("mAP@50",    f"{cm['mAP50']:.3f}")
-        a2.metric("Precision", f"{cm['Precision']:.3f}")
-        a3.metric("Recall",    f"{cm['Recall']:.3f}")
+        a1.metric("mAP@50",    f"{cm['mAP50']*100:.1f}%")
+        a2.metric("Precision", f"{cm['Precision']*100:.1f}%")
+        a3.metric("Recall",    f"{cm['Recall']*100:.1f}%")
         st.markdown("")
     st.markdown("---")
 
@@ -1259,3 +1261,66 @@ with tab_card:
         with t3:
             st.markdown(team_card("pt", "Martim Gomes", "martimlvg"), unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TAB: TEAM
+# ═══════════════════════════════════════════════════════════════════════════
+with tab_team:
+    st.markdown("## Meet the Team")
+    st.markdown("**Project:** VISTA · Le Wagon Barcelona · Cohort #2230")
+    st.markdown("**Stack:** Python · YOLOv26 · xBD Dataset · GCP Vertex AI · Streamlit")
+    
+    st.markdown("---")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        <div class="team-card">
+            <span class="team-name">EDISON KRUGER</span>
+            <div style="text-align:center; margin-top:20px; display:flex; gap:20px; justify-content:center;">
+                <a href="https://github.com/EKRUGER-BCN" target="_blank">
+                    <img src="https://cdn.simpleicons.org/github/e8dcc8" style="width:32px; opacity:0.8; transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.8">
+                </a>
+                <a href="https://linkedin.com/in/edisonkruger" target="_blank">
+                    <img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" style="width:32px; opacity:0.8; transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.8">
+                </a>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("""
+        <div class="team-card">
+            <span class="team-name">IDELBRANDO DE JESUS JUNIOR</span>
+            <div style="text-align:center; margin-top:20px; display:flex; gap:20px; justify-content:center;">
+                <a href="https://github.com/IJESUSJR" target="_blank">
+                    <img src="https://cdn.simpleicons.org/github/e8dcc8" style="width:32px; opacity:0.8; transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.8">
+                </a>
+                <a href="https://linkedin.com/in/ijesus" target="_blank">
+                    <img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" style="width:32px; opacity:0.8; transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.8">
+                </a>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown("""
+        <div class="team-card">
+            <span class="team-name">MARTIM GOMES</span>
+            <div style="text-align:center; margin-top:20px; display:flex; gap:20px; justify-content:center;">
+                <a href="https://github.com/martimlvg" target="_blank">
+                    <img src="https://cdn.simpleicons.org/github/e8dcc8" style="width:32px; opacity:0.8; transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.8">
+                </a>
+                <a href="https://www.linkedin.com/in/martim-gomes-595a88361/" target="_blank">
+                    <img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" style="width:32px; opacity:0.8; transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.8">
+                </a>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.markdown('<div style="text-align:center; padding:20px;"><p style="color:#a09070; font-size:0.8rem;">Le Wagon Barcelona • Data Science & AI Bootcamp • Demo Day 2026</p></div>', unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════════════════════════════════
